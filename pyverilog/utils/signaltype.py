@@ -39,6 +39,10 @@ def isReg(termtype):
     return isType(termtype, 'Reg')
 
 
+def isLogic(termtype):
+    return isType(termtype, 'Logic')
+
+
 def isInteger(termtype):
     return isType(termtype, 'Integer')
 

@@ -1,1 +1,1 @@
-{{ var }}[{{ msb }}:{{ lsb }}]
+{{ var }}[{% if msb != lsb %}{{ msb }}:{{ lsb }}{% else %}{{lsb}}{% endif %}]

@@ -335,7 +335,38 @@ class ASTCodeGenerator(ConvertVisitor):
         rslt = template.render(template_dict)
         return rslt
 
+    def visit_Logic(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'name': escape(node.name),
+            'width': '' if node.width is None else self.visit(node.width),
+            'signed': node.signed,
+            'dimensions': '' if node.dimensions is None else self.visit(node.dimensions),
+        }
+        rslt = template.render(template_dict)
+        return rslt
+
+    def visit_Time(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'name': escape(node.name),
+        }
+        rslt = template.render(template_dict)
+        return rslt
+
     def visit_Integer(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'name': escape(node.name),
+            'signed': node.signed,
+        }
+        rslt = template.render(template_dict)
+        return rslt
+
+    def visit_Int(self, node):
         filename = getfilename(node)
         template = self.get_template(filename)
         template_dict = {
@@ -434,6 +465,16 @@ class ASTCodeGenerator(ConvertVisitor):
         rslt = template.render(template_dict)
         return rslt
 
+    def visit_Cast(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'width': node.width,
+            'value': del_paren(self.visit(node.value)),
+        }
+        rslt = template.render(template_dict)
+        return rslt
+
     def visit_Repeat(self, node):
         filename = getfilename(node)
         template = self.get_template(filename)
@@ -447,10 +488,23 @@ class ASTCodeGenerator(ConvertVisitor):
     def visit_Partselect(self, node):
         filename = getfilename(node)
         template = self.get_template(filename)
+        var = self.visit(node.var)
+        if node.var.__class__ != Identifier and node.var.__class__ != Arrayselect:
+            var = "{" + del_paren(var) + "}"
         template_dict = {
-            'var': self.visit(node.var),
+            'var': var,
             'msb': del_space(del_paren(self.visit(node.msb))),
             'lsb': del_space(del_paren(self.visit(node.lsb))),
+        }
+        rslt = template.render(template_dict)
+        return rslt
+
+    def visit_Arrayselect(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'var': self.visit(node.var),
+            'idx': del_space(del_paren(self.visit(node.idx))),
         }
         rslt = template.render(template_dict)
         return rslt

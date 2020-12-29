@@ -315,7 +315,19 @@ class Reg(Variable):
     pass
 
 
+class Logic(Variable):
+    pass
+
+
+class Time(Variable):
+    pass
+
+
 class Integer(Variable):
+    pass
+
+
+class Int(Variable):
     pass
 
 
@@ -403,6 +415,22 @@ class Concat(Node):
 class LConcat(Concat):
     pass
 
+class Cast(Node):
+    attr_names = ()
+
+    def __init__(self, value, width, lineno=0):
+        self.lineno = 0
+        self.value = value
+        self.width = width
+
+    def children(self):
+        nodelist = []
+        if self.value:
+            nodelist.append(self.value)
+        if self.width:
+            nodelist.append(self.width)
+        return tuple(nodelist)
+
 
 class Repeat(Node):
     attr_names = ()
@@ -438,6 +466,23 @@ class Partselect(Node):
             nodelist.append(self.msb)
         if self.lsb:
             nodelist.append(self.lsb)
+        return tuple(nodelist)
+
+
+class Arrayselect(Node):
+    attr_names = ()
+
+    def __init__(self, var, idx, lineno=0):
+        self.lineno = lineno
+        self.var = var
+        self.idx = idx
+
+    def children(self):
+        nodelist = []
+        if self.var:
+            nodelist.append(self.var)
+        if self.idx:
+            nodelist.append(self.idx)
         return tuple(nodelist)
 
 
@@ -1235,7 +1280,6 @@ class PragmaEntry(Node):
         if self.value:
             nodelist.append(self.value)
         return tuple(nodelist)
-
 
 class Disable(Node):
     attr_names = ('dest',)

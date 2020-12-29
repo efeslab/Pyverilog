@@ -20,6 +20,8 @@ Inout
 Tri
 Wire
 Reg
+Logic
+Int
 Integer
 Real
 Genvar
