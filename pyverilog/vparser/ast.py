@@ -272,13 +272,14 @@ class StringConst(Constant):
 class Variable(Value):
     attr_names = ('name', 'signed')
 
-    def __init__(self, name, width=None, signed=False, dimensions=None, value=None, lineno=0):
+    def __init__(self, name, width=None, signed=False, dimensions=None, value=None, lineno=0, annotation=None):
         self.lineno = lineno
         self.name = name
         self.width = width
         self.signed = signed
         self.dimensions = dimensions
         self.value = value
+        self.annotation = annotation
 
     def children(self):
         nodelist = []

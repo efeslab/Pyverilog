@@ -319,6 +319,7 @@ class ASTCodeGenerator(ConvertVisitor):
             'width': '' if node.width is None else self.visit(node.width),
             'signed': node.signed,
             'dimensions': '' if node.dimensions is None else self.visit(node.dimensions),
+            'annotation': '' if node.annotation is None else node.annotation,
         }
         rslt = template.render(template_dict)
         return rslt
@@ -331,6 +332,7 @@ class ASTCodeGenerator(ConvertVisitor):
             'width': '' if node.width is None else self.visit(node.width),
             'signed': node.signed,
             'dimensions': '' if node.dimensions is None else self.visit(node.dimensions),
+            'annotation': '' if node.annotation is None else node.annotation,
         }
         rslt = template.render(template_dict)
         return rslt
@@ -343,6 +345,7 @@ class ASTCodeGenerator(ConvertVisitor):
             'width': '' if node.width is None else self.visit(node.width),
             'signed': node.signed,
             'dimensions': '' if node.dimensions is None else self.visit(node.dimensions),
+            'annotation': '' if node.annotation is None else node.annotation,
         }
         rslt = template.render(template_dict)
         return rslt
