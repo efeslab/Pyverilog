@@ -77,6 +77,8 @@ class DFTerminal(DFNode):
 
     def __init__(self, name):
         self.name = name
+        self.fixed = False
+        self.forceWidth = None
 
     def __repr__(self):
         ret = ''
@@ -776,6 +778,8 @@ class Term(object):
 
 
 class Bind(object):
+    bind_global_id = 0
+
     def __init__(self, tree, dest, msb=None, lsb=None, ptr=None,
                  alwaysinfo=None, parameterinfo=''):
         self.tree = tree
@@ -787,6 +791,8 @@ class Bind(object):
         self.parameterinfo = parameterinfo
         if dest is None:
             raise verror.DefinitionError('Bind dest is empty')
+        self.id = Bind.bind_global_id
+        Bind.bind_global_id += 1
 
     def __ne__(self, other):
         return not self.__eq__(other)

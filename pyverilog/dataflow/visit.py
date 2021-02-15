@@ -791,6 +791,28 @@ class FrameTable(object):
             p = self.dict[p].getPrevious()
         return ()
 
+    def getRelatedBlockingAssign(self, dst, scope):
+        p = scope
+        ret = []
+        last_hier_min = None
+        while self.dict[p].isAlways():
+            # ret = list(self.dict[p].getBlockingAssign(dst)) + ret
+            # p = self.dict[p].getPrevious()
+            min_id = None
+            for ent in self.dict[p].getBlockingAssign(dst):
+                if min_id == None:
+                    min_id = ent.id
+                if ent.id < min_id:
+                    min_id = ent
+                if last_hier_min == None or last_hier_min > ent.id:
+                    ret.append(ent)
+                else:
+                    assert(0)
+            last_hier_min = min_id
+            p = self.dict[p].getPrevious()
+
+        return tuple(ret)
+
     def addNonblockingAssign(self, dst, bind):
         self.dict[self.current].addNonblockingAssign(dst, bind)
 

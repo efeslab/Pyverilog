@@ -470,21 +470,21 @@ class Partselect(Node):
         return tuple(nodelist)
 
 
-class Arrayselect(Node):
-    attr_names = ()
-
-    def __init__(self, var, idx, lineno=0):
-        self.lineno = lineno
-        self.var = var
-        self.idx = idx
-
-    def children(self):
-        nodelist = []
-        if self.var:
-            nodelist.append(self.var)
-        if self.idx:
-            nodelist.append(self.idx)
-        return tuple(nodelist)
+#class Arrayselect(Node):
+#    attr_names = ()
+#
+#    def __init__(self, var, idx, lineno=0):
+#        self.lineno = lineno
+#        self.var = var
+#        self.idx = idx
+#
+#    def children(self):
+#        nodelist = []
+#        if self.var:
+#            nodelist.append(self.var)
+#        if self.idx:
+#            nodelist.append(self.idx)
+#        return tuple(nodelist)
 
 
 class Pointer(Node):

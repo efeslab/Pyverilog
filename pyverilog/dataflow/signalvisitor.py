@@ -29,8 +29,13 @@ class SignalVisitor(NodeVisitor):
         self.labels = Labels()
         self.optimizer = VerilogOptimizer({}, {})
 
+        self.blackbox_modules = {}
+
         # set the top frame of top module
         self.stackInstanceFrame(top, top)
+
+    def add_blackbox_module(self, modulename):
+        self.blackbox_modules[modulename] = None
 
     def getFrameTable(self):
         return self.frames
@@ -45,6 +50,9 @@ class SignalVisitor(NodeVisitor):
         self.frames.addSignal(node)
 
     def visit_Inout(self, node):
+        self.frames.addSignal(node)
+
+    def visit_Logic(self, node):
         self.frames.addSignal(node)
 
     def visit_Reg(self, node):
@@ -114,6 +122,9 @@ class SignalVisitor(NodeVisitor):
         nodename = node.name
         return self._visit_Instance_body(node, nodename)
 
+    def visit_Constant(self, node):
+        pass
+
     def _visit_Instance_array(self, node):
         if node.name == '':
             raise verror.FormatError("Module %s requires an instance name" % node.module)
@@ -129,6 +140,9 @@ class SignalVisitor(NodeVisitor):
     def _visit_Instance_body(self, node, nodename):
         if node.module in primitives:
             return self._visit_Instance_primitive(node)
+
+        if node.module in self.blackbox_modules:
+            return self._visit_Instance_blackbox
 
         if nodename == '':
             raise verror.FormatError("Module %s requires an instance name" % node.module)
@@ -156,6 +170,9 @@ class SignalVisitor(NodeVisitor):
         self.frames.setCurrent(current)
 
     def _visit_Instance_primitive(self, node):
+        pass
+
+    def _visit_Instance_blackbox(self, node):
         pass
 
     def visit_Always(self, node):
@@ -554,6 +571,9 @@ class SignalVisitor(NodeVisitor):
             if node.syscall == 'signed':
                 return self.makeDFTree(node.args[0])
             return DFIntConst('0')
+
+        if isinstance(node, Constant):
+            return DFIntConst(node.value)
 
         raise verror.FormatError("unsupported AST node type: %s %s" %
                                  (str(type(node)), str(node)))

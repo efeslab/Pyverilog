@@ -16,9 +16,14 @@ from pyverilog.dataflow.dataflow import *
 
 def replaceUndefined(tree, termname):
     if tree is None:
-        return DFTerminal(termname)
+        term = DFTerminal(termname)
+        term.fixed = True
+        return term
     if isinstance(tree, DFUndefined):
-        return DFTerminal(termname)
+        term = DFTerminal(termname)
+        term.forceWidth = tree.width
+        term.fixed = True
+        return term
     # if isinstance(tree, DFHighImpedance): return DFTerminal(termname)
     if isinstance(tree, DFConstant):
         return tree
@@ -30,7 +35,16 @@ def replaceUndefined(tree, termname):
         condnode = replaceUndefined(tree.condnode, termname)
         truenode = replaceUndefined(tree.truenode, termname)
         falsenode = replaceUndefined(tree.falsenode, termname)
-        return DFBranch(condnode, truenode, falsenode)
+        term = DFBranch(condnode, truenode, falsenode)
+        if tree.truenode == None:
+            assert(term.truenode.fixed == True)
+            assert(tree.falsenode != None)
+            term.truenode.forceWidth = tree.falsenode
+        elif tree.falsenode == None:
+            assert(term.falsenode.fixed == True)
+            assert(tree.truenode != None)
+            term.falsenode.forceWidth = tree.truenode
+        return term
     if isinstance(tree, DFOperator):
         nextnodes = []
         for n in tree.nextnodes:
@@ -46,6 +60,10 @@ def replaceUndefined(tree, termname):
         var = replaceUndefined(tree.var, termname)
         return DFPointer(var, ptr)
     if isinstance(tree, DFConcat):
+        if termname == util.toTermname("ccip_std_afu_wrapper.ccip_std_afu__DOT__mpf__DOT__mpf_pipe__DOT__stgp7_fiu_rsp_order__DOT__c0Rx"):
+            print("<--------------------------->")
+            print(tree.__class__, tree.nextnodes)
+            print("<--------------------------->")
         nextnodes = []
         for n in tree.nextnodes:
             nextnodes.append(replaceUndefined(n, termname))

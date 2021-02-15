@@ -35,6 +35,8 @@ class BindVisitor(NodeVisitor):
         self.dataflow = DataFlow()
         self.optimizer = VerilogOptimizer({}, {})
 
+        self.blackbox_modules = {}
+
         self.noreorder = noreorder
 
         # set the top frame of top module
@@ -48,6 +50,9 @@ class BindVisitor(NodeVisitor):
 
         self.renamecnt = 0
         self.default_nettype = 'wire'
+
+    def add_blackbox_module(self, modulename):
+        self.blackbox_modules[modulename] = None
 
     def getDataflows(self):
         return self.dataflow
@@ -75,6 +80,12 @@ class BindVisitor(NodeVisitor):
         self.addTerm(node)
 
     def visit_Wire(self, node):
+        self.addTerm(node)
+
+    def visit_Logic(self, node):
+        self.addTerm(node)
+
+    def visit_Time(self, node):
         self.addTerm(node)
 
     def visit_Tri(self, node):
@@ -154,6 +165,9 @@ class BindVisitor(NodeVisitor):
         if node.module in primitives:
             return self._visit_Instance_primitive(node, arrayindex)
 
+        if node.module in self.blackbox_modules:
+            return self._visit_Instance_blackbox(node, arrayindex)
+
         if nodename == '':
             raise verror.FormatError("Module %s requires an instance name" % node.module)
 
@@ -205,6 +219,19 @@ class BindVisitor(NodeVisitor):
                            [Pointer(p.argname, IntConst(str(arrayindex))) for p in node.portlist[1:]])
             right = primitive_type(Concat(concat_list))
         self.addBind(left, right, bindtype='assign')
+    
+    def _visit_Instance_blackbox(self, node, arrayindex=None):
+        assert(arrayindex == None)
+        assert(node.module == "altsyncram")
+        # FIXME: add an interface to specify rules
+        data_a = None
+        q_b = None
+        for port in node.portlist:
+            if port.portname == "data_a":
+                data_a = port.argname
+            if port.portname == "q_b":
+                q_b = port.argname
+        self.addBind(q_b, data_a, bindtype=node.module)
 
     def visit_Initial(self, node):
         pass
@@ -1014,6 +1041,9 @@ class BindVisitor(NodeVisitor):
                 raise verror.DefinitionError('No such signal: %s' % node.name)
             return DFTerminal(name)
 
+        if isinstance(node, Cast):
+            return self.makeDFTree(node.value, scope)
+
         if isinstance(node, IntConst):
             return DFIntConst(node.value)
 
@@ -1161,6 +1191,9 @@ class BindVisitor(NodeVisitor):
                 return self.makeDFTree(node.args[0], scope)
             return DFIntConst('0')
 
+        if isinstance(node, Constant):
+            return DFIntConst(node.value)
+
         raise verror.FormatError("unsupported AST node type: %s %s" %
                                  (str(type(node)), str(node)))
 
@@ -1179,9 +1212,9 @@ class BindVisitor(NodeVisitor):
             reducedscope = self.reduceIfScope(reducedscope)
         return tuple(reversed(resolved_condlist))
 
-    def removeOverwrappedCondition(self, tree, current_bindlist, scope):
+    def removeOverwrappedCondition(self, tree, related_bindlist, scope):
         msb, lsb = self.getTermWidth(tree.name)
-        merged_tree = self.getFitTree(current_bindlist, msb, lsb)
+        merged_tree = self.getFitTree(related_bindlist, msb, lsb)
         condlist, flowlist = self.getCondflow(scope)
         (merged_tree,
          rest_condlist,
@@ -1202,12 +1235,17 @@ class BindVisitor(NodeVisitor):
         if isinstance(tree, DFTerminal):
             if signaltype.isGenvar(self.getTermtype(tree.name)):
                 return self.getConstant(tree.name)
-
-            current_bindlist = self.frames.getBlockingAssign(tree.name, scope)
-            if len(current_bindlist) == 0:
+            
+            # current_bindlist = self.frames.getBlockingAssign(tree.name, scope)
+            # if len(current_bindlist) == 0:
+            #     return tree
+            related_bindlist = self.frames.getRelatedBlockingAssign(tree.name, scope)
+            if len(related_bindlist) == 0:
                 return tree
 
-            return self.removeOverwrappedCondition(tree, current_bindlist, scope)
+
+            # return self.removeOverwrappedCondition(tree, current_bindlist, scope)
+            return self.removeOverwrappedCondition(tree, related_bindlist, scope)
 
         if isinstance(tree, DFBranch):
             truenode = self.resolveBlockingAssign(tree.truenode, scope)
@@ -1269,36 +1307,92 @@ class BindVisitor(NodeVisitor):
     def getFitTree(self, bindlist, msb, lsb):
         optimized_msb = self.optimize(msb)
         optimized_lsb = self.optimize(lsb)
-        for bind in bindlist:
-            if bind.msb is None and bind.lsb is None:
-                return bind.tree
-            if (self.optimize(bind.msb) == optimized_msb and
-                    self.optimize(bind.lsb) == optimized_lsb):
-                return bind.tree
-        return self.getMergedTree(bindlist)
+        if len(bindlist) == 1:
+            for bind in bindlist:
+                if bind.msb is None and bind.lsb is None:
+                    return bind.tree
+                if (self.optimize(bind.msb) == optimized_msb and
+                        self.optimize(bind.lsb) == optimized_lsb):
+                    return bind.tree
+        return self.getMergedTree(bindlist, optimized_msb, optimized_lsb)
 
-    def getMergedTree(self, bindlist):
+    def getMergedTree(self, bindlist, target_msb, target_lsb):
         concatlist = []
         last_msb = -1
         last_ptr = -1
 
+        # def bindkey(x):
+        #     lsb = 0 if x.lsb is None else x.lsb.value
+        #     ptr = 0 if not isinstance(x.ptr, DFEvalValue) else x.ptr.value
+        #     term = self.getTerm(x.dest)
+        #     length = (abs(self.optimize(term.msb).value
+        #                   - self.optimize(term.lsb).value) + 1)
+        #     return ptr * length + lsb
+        # for bind in sorted(bindlist, key=bindkey):
+        #     lsb = 0 if bind.lsb is None else bind.lsb.value
+        #     if last_ptr != (-1 if not isinstance(bind.ptr, DFEvalValue)
+        #                     else bind.ptr.value):
+        #         continue
+        #     if last_msb + 1 < lsb:
+        #         concatlist.append(DFUndefined(lsb - last_msb - 1))
+        #     concatlist.append(bind.tree)
+        #     last_msb = -1 if bind.msb is None else bind.msb.value
+        #     last_ptr = -1 if not isinstance(bind.ptr, DFEvalValue) else bind.ptr.value
+        # if target_msb.eval() > last_msb:
+        #     concatlist.append(DFUndefined(target_msb.eval() - last_msb))
+        # return DFConcat(tuple(reversed(concatlist)))
+
         def bindkey(x):
-            lsb = 0 if x.lsb is None else x.lsb.value
-            ptr = 0 if not isinstance(x.ptr, DFEvalValue) else x.ptr.value
-            term = self.getTerm(x.dest)
-            length = (abs(self.optimize(term.msb).value
-                          - self.optimize(term.lsb).value) + 1)
-            return ptr * length + lsb
-        for bind in sorted(bindlist, key=bindkey):
-            lsb = 0 if bind.lsb is None else bind.lsb.value
-            if last_ptr != (-1 if not isinstance(bind.ptr, DFEvalValue)
-                            else bind.ptr.value):
-                continue
-            if last_msb + 1 < lsb:
-                concatlist.append(DFUndefined(last_msb - lsb - 1))
-            concatlist.append(bind.tree)
-            last_msb = -1 if bind.msb is None else bind.msb.value
-            last_ptr = -1 if not isinstance(bind.ptr, DFEvalValue) else bind.ptr.value
+            return x.id
+        # id is assigned during AST parsing, as a result, the ids of assignments in an
+        # outer block are smaller
+        bindlist = sorted(bindlist, key=bindkey)
+        val_map = {}
+        val_map[0] = ((DFUndefined(target_msb.eval() - target_lsb.eval() + 1), 
+                                            target_msb.eval() - target_lsb.eval() + 1))
+        for bind in bindlist:
+            assert(bind.ptr == None)
+            if bind.lsb and bind.msb:
+                lsb = bind.lsb.eval()
+                msb = bind.msb.eval()
+            else:
+                lsb = target_lsb.eval()
+                msb = target_msb.eval()
+            new_val_map = copy.deepcopy(val_map)
+            for key in val_map:
+                o_msb = key + val_map[key][1] - 1
+                o_lsb = key
+                if msb >= o_msb and o_lsb >= lsb:
+                    del new_val_map[key]
+                elif msb >= o_msb and o_msb >= lsb and lsb > o_lsb:
+                    tree = val_map[key][0]
+                    new_val_map[key] = (DFPartselect(tree,
+                                        DFEvalValue(lsb-1-o_lsb), DFEvalValue(0)),
+                                        lsb - o_lsb)
+                elif o_msb > msb and msb >= o_lsb and o_lsb >= lsb:
+                    tree = val_map[key][0]
+                    new_val_map[msb+1] = (DFPartselect(tree,
+                                        DFEvalValue(o_msb-o_lsb), DFEvalValue(msb+1-o_lsb)),
+                                        o_msb - msb)
+                    del new_val_map[key]
+                elif o_msb > msb and lsb > o_lsb:
+                    tree = val_map[key][0]
+                    new_val_map[key] = (DFPartselect(tree,
+                                        DFEvalValue(lsb-1-o_lsb), DFEvalValue(0)),
+                                        lsb - o_lsb)
+                    new_val_map[msb+1] = (DFPartselect(tree,
+                                        DFEvalValue(o_msb-o_lsb), DFEvalValue(msb+1-o_lsb)),
+                                        o_msb - msb)
+                else:
+                    pass
+            new_val_map[lsb] = (bind.tree, msb - lsb + 1)
+            val_map = new_val_map
+        print(val_map)
+        cur = 0
+        while cur <= target_msb.eval():
+            concatlist.append(val_map[cur][0])
+            cur += val_map[cur][1]
+        print(concatlist)
         return DFConcat(tuple(reversed(concatlist)))
 
     def getDestinations(self, left, scope):
@@ -1435,8 +1529,14 @@ class BindVisitor(NodeVisitor):
             newterm = copy.deepcopy(term)
             newterm.name = renamed_dname
             newterm.termtype = set(['Rename'])
+            if d[1] != None and d[2] != None:
+                newterm.lsb = DFIntConst(str(0))
+                newterm.msb = DFIntConst(str(d[1].eval() - d[2].eval()))
+            else:
+                assert(d[1] == None and d[2] == None)
+            newterm.ptr = None
             self.dataflow.addTerm(renamed_dname, newterm)
-            newd = (renamed_dname,) + d[1:]
+            newd = (renamed_dname, None, None, None, ) + d[4:]
             renamed_dst += (newd,)
         return renamed_dst
 

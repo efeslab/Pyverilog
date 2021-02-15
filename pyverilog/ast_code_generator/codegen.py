@@ -100,6 +100,20 @@ def del_space(s):
 
 
 class ASTCodeGenerator(ConvertVisitor):
+
+    def verilog_string_to_int(self, s):
+        value_pos = s.find("h")
+        if value_pos >= 0:
+            return int("0x"+s[value_pos+1:], 16)
+        else:
+            value_pos = s.find("b")
+            if value_pos >= 0:
+                return int("0b"+s[value_pos+1:], 16)
+            else:
+                value_pos = s.find("'")
+                assert(value_pos == -1)
+                return int(s)
+
     def __init__(self, indentsize=2):
         self.env = Environment(loader=FileSystemLoader(DEFAULT_TEMPLATE_DIR))
         self.indent = functools.partial(indent, prefix=' ' * indentsize)
@@ -472,7 +486,7 @@ class ASTCodeGenerator(ConvertVisitor):
         filename = getfilename(node)
         template = self.get_template(filename)
         template_dict = {
-            'width': node.width,
+            'width': self.visit(node.width),
             'value': del_paren(self.visit(node.value)),
         }
         rslt = template.render(template_dict)
@@ -492,7 +506,7 @@ class ASTCodeGenerator(ConvertVisitor):
         filename = getfilename(node)
         template = self.get_template(filename)
         var = self.visit(node.var)
-        if node.var.__class__ != Identifier and node.var.__class__ != Arrayselect:
+        if node.var.__class__ != Identifier and node.var.__class__ != Pointer:
             var = "{" + del_paren(var) + "}"
         template_dict = {
             'var': var,
@@ -502,15 +516,15 @@ class ASTCodeGenerator(ConvertVisitor):
         rslt = template.render(template_dict)
         return rslt
 
-    def visit_Arrayselect(self, node):
-        filename = getfilename(node)
-        template = self.get_template(filename)
-        template_dict = {
-            'var': self.visit(node.var),
-            'idx': del_space(del_paren(self.visit(node.idx))),
-        }
-        rslt = template.render(template_dict)
-        return rslt
+    #def visit_Arrayselect(self, node):
+    #    filename = getfilename(node)
+    #    template = self.get_template(filename)
+    #    template_dict = {
+    #        'var': self.visit(node.var),
+    #        'idx': del_space(del_paren(self.visit(node.idx))),
+    #    }
+    #    rslt = template.render(template_dict)
+    #    return rslt
 
     def visit_Pointer(self, node):
         filename = getfilename(node)
