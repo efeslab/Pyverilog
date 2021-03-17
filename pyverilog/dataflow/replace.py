@@ -60,10 +60,6 @@ def replaceUndefined(tree, termname):
         var = replaceUndefined(tree.var, termname)
         return DFPointer(var, ptr)
     if isinstance(tree, DFConcat):
-        if termname == util.toTermname("ccip_std_afu_wrapper.ccip_std_afu__DOT__mpf__DOT__mpf_pipe__DOT__stgp7_fiu_rsp_order__DOT__c0Rx"):
-            print("<--------------------------->")
-            print(tree.__class__, tree.nextnodes)
-            print("<--------------------------->")
         nextnodes = []
         for n in tree.nextnodes:
             nextnodes.append(replaceUndefined(n, termname))

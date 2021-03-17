@@ -55,7 +55,8 @@ class NodeVisitor(object):
 # Signal/Object Management Classes
 class AlwaysInfo(object):
     def __init__(self, clock_name='', clock_edge=None, clock_bit=0,
-                 reset_name='', reset_edge=None, reset_bit=0, senslist=()):
+                 reset_name='', reset_edge=None, reset_bit=0, senslist=(),
+                 original_senslist=None):
         self.clock_name = clock_name
         self.clock_edge = clock_edge
         self.clock_bit = clock_bit
@@ -63,6 +64,7 @@ class AlwaysInfo(object):
         self.reset_edge = reset_edge
         self.reset_bit = reset_bit
         self.senslist = senslist
+        self.original_senslist = original_senslist
 
     def getClockName(self):
         return self.clock_name
@@ -428,9 +430,10 @@ class Frame(object):
         self.next.append(nextframe)
 
     def setAlwaysInfo(self, clock_name, clock_edge, clock_bit,
-                      reset_name, reset_edge, reset_bit, senslist):
+                      reset_name, reset_edge, reset_bit, senslist, original_senslist):
         self.alwaysinfo = AlwaysInfo(clock_name, clock_edge, clock_bit,
-                                     reset_name, reset_edge, reset_bit, senslist)
+                                     reset_name, reset_edge, reset_bit,
+                                     senslist, original_senslist)
 
     def addSignal(self, node):
         self.variables.addSignal(node.name, node)
@@ -638,9 +641,10 @@ class FrameTable(object):
         return self.for_iter
 
     def setAlwaysInfo(self, clock_name, clock_edge, clock_bit,
-                      reset_name, reset_edge, reset_bit, senslist):
+                      reset_name, reset_edge, reset_bit, senslist, original_senslist):
         self.dict[self.current].setAlwaysInfo(clock_name, clock_edge, clock_bit,
-                                              reset_name, reset_edge, reset_bit, senslist)
+                                              reset_name, reset_edge, reset_bit,
+                                              senslist, original_senslist)
 
     def setCurrent(self, current):
         self.current = current

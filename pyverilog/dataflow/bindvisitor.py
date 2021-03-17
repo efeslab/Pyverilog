@@ -27,7 +27,7 @@ import pyverilog.dataflow.replace as replace
 
 
 class BindVisitor(NodeVisitor):
-    def __init__(self, moduleinfotable, top, frames, noreorder=False):
+    def __init__(self, moduleinfotable, top, frames, noreorder=False, ignoreSyscall=True):
         self.moduleinfotable = moduleinfotable
         self.top = top
         self.frames = frames
@@ -51,8 +51,15 @@ class BindVisitor(NodeVisitor):
         self.renamecnt = 0
         self.default_nettype = 'wire'
 
-    def add_blackbox_module(self, modulename):
-        self.blackbox_modules[modulename] = None
+        # These two variables are for blocking bind fix
+        self.finalRound = True
+        self.bindUpdated = False
+
+        self.ignoreSyscall = ignoreSyscall
+
+    def addBlackboxModule(self, modulename, model):
+        self.blackbox_modules[modulename] = model
+        self.dataflow.addBlackBoxModule(modulename, model)
 
     def getDataflows(self):
         return self.dataflow
@@ -65,7 +72,32 @@ class BindVisitor(NodeVisitor):
 
     def visit_ModuleDef(self, node):
         self.default_nettype = node.default_nettype
-        self.generic_visit(node)
+        logicdefs = []
+        assigns = []
+        blocking_always = []
+        others = []
+        for n in node.children():
+            if (n.__class__ == Logic or n.__class__ == Wire or
+                    n.__class__ == Reg or n.__class__ == Time or
+                    n.__class__ == Tri or n.__class__ == Integer or
+                    n.__class__ == Int or n.__class__ == Paramlist or
+                    n.__class__ == Portlist):
+                logicdefs.append(n)
+            elif n.__class__ == Assign:
+                assigns.append(n)
+            elif (n.__class__ == Always and len(n.sens_list.list) == 1 and
+                    n.sens_list.list[0].sig.name == ""):
+                blocking_always.append(n)
+            else:
+                others.append(n)
+        for n in logicdefs:
+            self.visit(n)
+        for n in assigns:
+            self.visit(n)
+        for n in blocking_always:
+            self.visit(n)
+        for n in others:
+            self.visit(n)
 
     def visit_Input(self, node):
         self.addTerm(node)
@@ -222,16 +254,42 @@ class BindVisitor(NodeVisitor):
     
     def _visit_Instance_blackbox(self, node, arrayindex=None):
         assert(arrayindex == None)
-        assert(node.module == "altsyncram")
         # FIXME: add an interface to specify rules
-        data_a = None
-        q_b = None
-        for port in node.portlist:
-            if port.portname == "data_a":
-                data_a = port.argname
-            if port.portname == "q_b":
-                q_b = port.argname
-        self.addBind(q_b, data_a, bindtype=node.module)
+
+        if node.module == "altsyncram":
+            self.blackbox_modules[node.module].bind(self, node)
+            #data_a = None
+            #data_b = None
+            #q_a = None
+            #q_b = None
+            #for port in node.portlist:
+            #    if port.portname == "data_a":
+            #        data_a = port.argname
+            #    if port.portname == "q_b":
+            #        q_b = port.argname
+            #    if port.portname == "data_b":
+            #        data_b = port.argname
+            #    if port.portname == "q_a":
+            #        q_a = port.argname
+            #if q_a != None and data_a != None:
+            #    self.addBind(q_a, data_a, bindtype=node.module)
+            #if q_a != None and data_b != None:
+            #    self.addBind(q_a, data_b, bindtype=node.module)
+            #if q_b != None and data_a != None:
+            #    self.addBind(q_b, data_a, bindtype=node.module)
+            #if q_b != None and data_b != None:
+            #    self.addBind(q_b, data_b, bindtype=node.module)
+        elif node.module == "dcfifo" or node.module == "scfifo":
+            data = None
+            q = None
+            for port in node.portlist:
+                if port.portname == "data":
+                    data = port.argname
+                if port.portname == "q":
+                    q = port.argname
+            self.addBind(q, data, bindtype=node.module)
+        else:
+            assert(0)
 
     def visit_Initial(self, node):
         pass
@@ -253,7 +311,8 @@ class BindVisitor(NodeVisitor):
          senslist) = self._createAlwaysinfo(node, current)
 
         self.frames.setAlwaysInfo(clock_name, clock_edge, clock_bit,
-                                  reset_name, reset_edge, reset_bit, senslist)
+                                  reset_name, reset_edge, reset_bit,
+                                  senslist, node.sens_list)
 
         self.generic_visit(node)
         self.frames.setCurrent(current)
@@ -584,7 +643,10 @@ class BindVisitor(NodeVisitor):
         self.addBind(node.left, node.right, self.frames.getAlwaysStatus(), 'nonblocking')
 
     def visit_SystemCall(self, node):
-        print("Warning: Isolated system call is not supported: %s" % node.syscall)
+        if self.ignoreSyscall:
+            pass
+        else:
+            print("Warning: Isolated system call is not supported: %s" % node.syscall)
 
     def optimize(self, node):
         return self.optimizer.optimize(node)
@@ -1348,7 +1410,15 @@ class BindVisitor(NodeVisitor):
         # outer block are smaller
         bindlist = sorted(bindlist, key=bindkey)
         val_map = {}
-        val_map[0] = ((DFUndefined(target_msb.eval() - target_lsb.eval() + 1), 
+        
+        assert(len(bindlist) > 0)
+
+        # If there's no bind available, keep the assignment for now. In the last round we will
+        # make it undefined.
+        if not self.finalRound:
+            val_map[0] = (DFTerminal(bindlist[0].dest), target_msb.eval() - target_lsb.eval() + 1)
+        else:
+            val_map[0] = ((DFUndefined(target_msb.eval() - target_lsb.eval() + 1), 
                                             target_msb.eval() - target_lsb.eval() + 1))
         for bind in bindlist:
             assert(bind.ptr == None)
@@ -1387,12 +1457,12 @@ class BindVisitor(NodeVisitor):
                     pass
             new_val_map[lsb] = (bind.tree, msb - lsb + 1)
             val_map = new_val_map
-        print(val_map)
+        #print(val_map)
         cur = 0
         while cur <= target_msb.eval():
             concatlist.append(val_map[cur][0])
             cur += val_map[cur][1]
-        print(concatlist)
+        #print(concatlist)
         return DFConcat(tuple(reversed(concatlist)))
 
     def getDestinations(self, left, scope):
@@ -1501,20 +1571,21 @@ class BindVisitor(NodeVisitor):
                 self.setNonblockingAssign(name, dst, raw_tree,
                                           msb, lsb, ptr,
                                           part_msb, part_lsb,
-                                          alwaysinfo)
+                                          alwaysinfo,
+                                          condlist, flowlist)
 
     def setDataflow_rename(self, dst, raw_tree, condlist, flowlist,
                            scope, alwaysinfo=None):
         renamed_dst = self.getRenamedDst(dst)
-        self.setRenamedTree(renamed_dst, raw_tree, alwaysinfo)
+        self.setRenamedTree(renamed_dst, raw_tree, alwaysinfo, condlist, flowlist)
         self.setRenamedFlow(dst, renamed_dst, condlist, flowlist, scope, alwaysinfo)
 
     def setNonblockingAssign(self, name, dst, raw_tree, msb, lsb, ptr,
-                             part_msb, part_lsb, alwaysinfo):
+                             part_msb, part_lsb, alwaysinfo, condlist, flowlist):
         tree = raw_tree
         if len(dst) > 1:
             tree = reorder.reorder(DFPartselect(raw_tree, part_msb, part_lsb))
-        bind = Bind(tree, name, msb, lsb, ptr, alwaysinfo)
+        bind = Bind(tree, name, msb, lsb, ptr, alwaysinfo, None, condlist, flowlist)
         self.frames.addNonblockingAssign(name, bind)
 
     def getRenamedDst(self, dst):
@@ -1540,13 +1611,13 @@ class BindVisitor(NodeVisitor):
             renamed_dst += (newd,)
         return renamed_dst
 
-    def setRenamedTree(self, renamed_dst, raw_tree, alwaysinfo):
+    def setRenamedTree(self, renamed_dst, raw_tree, alwaysinfo, condlist, flowlist):
         for name, msb, lsb, ptr, part_msb, part_lsb in renamed_dst:
             tree = raw_tree
             if len(renamed_dst) > 1:
                 tree = reorder.reorder(
                     DFPartselect(tree, part_msb, part_lsb))
-            bind = Bind(tree, name, msb, lsb, ptr)
+            bind = Bind(tree, name, msb, lsb, ptr, condlist=condlist, flowlist=flowlist)
             self.dataflow.addBind(name, bind)
 
             value = self.optimize(tree)
@@ -1613,7 +1684,7 @@ class BindVisitor(NodeVisitor):
             tree = reorder.reorder(
                 DFPartselect(tree, part_msb, part_lsb))
 
-        return Bind(tree, name, msb, lsb, ptr, alwaysinfo, bindtype)
+        return Bind(tree, name, msb, lsb, ptr, alwaysinfo, bindtype, condlist, flowlist)
 
     def diffBranchTree(self, tree, condlist, flowlist, matchflowlist=()):
         if len(condlist) == 0:

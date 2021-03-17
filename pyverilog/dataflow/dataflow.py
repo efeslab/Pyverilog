@@ -781,7 +781,7 @@ class Bind(object):
     bind_global_id = 0
 
     def __init__(self, tree, dest, msb=None, lsb=None, ptr=None,
-                 alwaysinfo=None, parameterinfo=''):
+                 alwaysinfo=None, parameterinfo='', condlist=None, flowlist=None):
         self.tree = tree
         self.dest = dest
         self.msb = msb
@@ -791,6 +791,10 @@ class Bind(object):
         self.parameterinfo = parameterinfo
         if dest is None:
             raise verror.DefinitionError('Bind dest is empty')
+
+        self.condlist = condlist
+        self.flowlist = flowlist
+
         self.id = Bind.bind_global_id
         Bind.bind_global_id += 1
 
@@ -963,6 +967,11 @@ class DataFlow(object):
         self.task_ports = {}
         self.temporal_value = {}
 
+        self.blackbox_modules = {}
+
+    def addBlackBoxModule(self, modulename, model):
+        self.blackbox_modules[modulename] = model
+
     def addTerm(self, name, term):
         if not name in self.terms:
             self.terms[name] = term
@@ -1002,6 +1011,10 @@ class DataFlow(object):
             raise verror.DefinitionError('Bind name is empty')
         currentbindlist = self.binddict[name]
         c_i = 0
+        # for blackbox modules, we just add whatever its model specifies
+        if bind.parameterinfo in self.blackbox_modules:
+            self.binddict[name] = currentbindlist + [bind, ]
+            return
         for c in currentbindlist:
             if c.msb == bind.msb and c.lsb == bind.lsb and c.ptr == bind.ptr:
                 self.binddict[name][c_i].tree = bind.tree

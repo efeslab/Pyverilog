@@ -34,8 +34,8 @@ class SignalVisitor(NodeVisitor):
         # set the top frame of top module
         self.stackInstanceFrame(top, top)
 
-    def add_blackbox_module(self, modulename):
-        self.blackbox_modules[modulename] = None
+    def addBlackboxModule(self, modulename, model):
+        self.blackbox_modules[modulename] = model
 
     def getFrameTable(self):
         return self.frames
