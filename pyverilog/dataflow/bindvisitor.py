@@ -256,7 +256,7 @@ class BindVisitor(NodeVisitor):
         assert(arrayindex == None)
         # FIXME: add an interface to specify rules
 
-        if node.module == "altsyncram":
+        if node.module == "altsyncram" or node.module == "dcfifo":
             self.blackbox_modules[node.module].bind(self, node)
             #data_a = None
             #data_b = None
@@ -279,7 +279,7 @@ class BindVisitor(NodeVisitor):
             #    self.addBind(q_b, data_a, bindtype=node.module)
             #if q_b != None and data_b != None:
             #    self.addBind(q_b, data_b, bindtype=node.module)
-        elif node.module == "dcfifo" or node.module == "scfifo":
+        elif node.module == "scfifo":
             data = None
             q = None
             for port in node.portlist:
