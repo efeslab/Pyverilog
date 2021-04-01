@@ -1,2 +1,2 @@
 
-always @({{ sens_list }}) {{ statement }}
+{% if sens_list == '*' %}always_comb {{ statement }}{% else %}always @({{ sens_list }}) {{ statement }}{% endif %}
