@@ -1332,3 +1332,15 @@ class EmbeddedCode(Node):
     def children(self):
         nodelist = []
         return tuple(nodelist)
+
+class CommentStmt(Node):
+    """
+    Statement-like verilog comment, could be synthesizer metecomment
+    """
+    attr_names = ('text',)
+
+    def __init__(self, text, lineno=0):
+        self.text = text
+
+    def children(self):
+        return ()
