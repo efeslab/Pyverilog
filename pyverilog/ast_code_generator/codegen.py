@@ -273,6 +273,7 @@ class ASTCodeGenerator(ConvertVisitor):
             'width': '' if node.width is None else self.visit(node.width),
             'signed': node.signed,
             'dimensions': '' if node.dimensions is None else self.visit(node.dimensions),
+            'annotation': '' if node.annotation is None else node.annotation
         }
         rslt = template.render(template_dict)
         return rslt
@@ -1099,3 +1100,12 @@ class ASTCodeGenerator(ConvertVisitor):
 
     def visit_EmbeddedCode(self, node):
         return node.code
+
+    def visit_CommentStmt(self, node):
+        filename = getfilename(node)
+        template = self.get_template(filename)
+        template_dict = {
+            'text': node.text
+        }
+        rslt = template.render(template_dict)
+        return rslt
