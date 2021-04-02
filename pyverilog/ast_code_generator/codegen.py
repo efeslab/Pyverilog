@@ -509,7 +509,8 @@ class ASTCodeGenerator(ConvertVisitor):
         var = self.visit(node.var)
         if node.var.__class__ != Identifier and node.var.__class__ != Pointer:
             var = "{" + del_paren(var) + "}"
-        if isinstance(node.msb, IntConst) and isinstance(node.lsb, IntConst):
+        if (node.msb is node.lsb) or \
+            (isinstance(node.msb, IntConst) and isinstance(node.lsb, IntConst)):
             template_dict = {
                 'var': var,
                 'widthop' : ':', # const : const
