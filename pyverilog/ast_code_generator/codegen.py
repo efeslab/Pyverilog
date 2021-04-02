@@ -508,11 +508,25 @@ class ASTCodeGenerator(ConvertVisitor):
         var = self.visit(node.var)
         if node.var.__class__ != Identifier and node.var.__class__ != Pointer:
             var = "{" + del_paren(var) + "}"
-        template_dict = {
-            'var': var,
-            'msb': del_space(del_paren(self.visit(node.msb))),
-            'lsb': del_space(del_paren(self.visit(node.lsb))),
-        }
+        if isinstance(node.msb, IntConst) and isinstance(node.lsb, IntConst):
+            template_dict = {
+                'var': var,
+                'widthop' : ':', # const : const
+                'msb': del_space(del_paren(self.visit(node.msb))),
+                'lsb': del_space(del_paren(self.visit(node.lsb))),
+            }
+        elif isinstance(node.msb, Plus) and \
+            node.msb.left is node.lsb and isinstance (node.msb.right, IntConst):
+            base = node.msb.left
+            width = int(node.msb.right.value) + 1
+            template_dict = {
+                'var': var,
+                'widthop' : '+:', # var +: const
+                'msb': del_space(del_paren(self.visit(base))),
+                'lsb': str(width),
+            }
+        else:
+            raise NotImplementedError("Unknown partselect")
         rslt = template.render(template_dict)
         return rslt
 

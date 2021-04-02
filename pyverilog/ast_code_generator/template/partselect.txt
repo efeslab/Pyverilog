@@ -1,1 +1,1 @@
-{{ var }}[{% if msb != lsb %}{{ msb }}:{{ lsb }}{% else %}{{lsb}}{% endif %}]
+{{ var }}[{% if msb != lsb %}{{ msb }}{{widthop}}{{ lsb }}{% else %}{{lsb}}{% endif %}]
