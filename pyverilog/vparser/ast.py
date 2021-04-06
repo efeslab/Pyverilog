@@ -1204,10 +1204,11 @@ class GenerateStatement(Node):
 class SystemCall(Node):
     attr_names = ('syscall',)
 
-    def __init__(self, syscall, args, lineno=0):
+    def __init__(self, syscall, args, lineno=0, anno=None):
         self.lineno = lineno
         self.syscall = syscall
         self.args = args
+        self.anno = anno
 
     def children(self):
         nodelist = []
