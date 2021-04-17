@@ -1042,6 +1042,7 @@ class ASTCodeGenerator(ConvertVisitor):
             'syscall': escape(node.syscall),
             'args': args,
             'len_args': len(args),
+            'anno': '' if node.anno == None else node.anno
         }
         rslt = template.render(template_dict)
         return rslt
