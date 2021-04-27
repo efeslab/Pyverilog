@@ -1208,7 +1208,7 @@ class SystemCall(Node):
         self.lineno = lineno
         self.syscall = syscall
         self.args = args
-        self.anno = anno
+        self.annotation = anno
 
     def children(self):
         nodelist = []
