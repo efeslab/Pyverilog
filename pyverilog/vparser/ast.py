@@ -320,6 +320,10 @@ class Logic(Variable):
     pass
 
 
+class String(Variable):
+    pass
+
+
 class Time(Variable):
     pass
 
