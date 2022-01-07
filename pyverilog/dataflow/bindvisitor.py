@@ -1592,8 +1592,19 @@ class BindVisitor(NodeVisitor):
             newterm.name = renamed_dname
             newterm.termtype = set(['Rename'])
             if d[1] != None and d[2] != None:
-                newterm.lsb = DFIntConst(str(0))
-                newterm.msb = DFIntConst(str(d[1].eval() - d[2].eval()))
+                if isinstance(d[1], DFOperator):
+                    assert(d[1].operator == "Plus")
+                    assert(d[1].nextnodes[0] == d[2])
+                    newterm.lsb = DFIntConst(str(0))
+                    newterm.msb = DFIntConst(str(d[1].nextnodes[1].eval()))
+                elif hasattr(d[1], "eval") and hasattr(d[2], "eval"):
+                    newterm.lsb = DFIntConst(str(0))
+                    newterm.msb = DFIntConst(str(d[1].eval() - d[2].eval()))
+                elif d[1] == d[2]:
+                    newterm.lsb = None
+                    newterm.msb = None
+                else:
+                    assert(0)
             else:
                 assert(d[1] == None and d[2] == None)
             newterm.ptr = None
