@@ -546,8 +546,6 @@ class Operator(Node):
         self.lineno = lineno
         self.left = left
         self.right = right
-        self.force_signed = False
-        self.force_unsigned = False
 
     def children(self):
         nodelist = []

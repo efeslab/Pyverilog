@@ -593,7 +593,6 @@ class ASTCodeGenerator(ConvertVisitor):
             'left': left,
             'right': right,
             'op': op2mark(node.__class__.__name__),
-            'force_signed': node.force_signed
         }
         rslt = template.render(template_dict)
         return rslt

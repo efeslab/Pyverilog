@@ -1,1 +1,1 @@
-({% if force_signed %}$signed({% endif %}{{ left }}{% if force_signed %}){% endif %} {{ op }} {% if force_signed %}$signed({% endif %}{{ right }}{% if force_signed %}){% endif %})
+({{ left }} {{ op }} {{ right }})
