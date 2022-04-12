@@ -216,6 +216,7 @@ class ASTCodeGenerator(ConvertVisitor):
         template_dict = {
             'name': escape(node.name),
             'scope': '' if node.scope is None else self.visit(node.scope),
+            'force_signed': node.force_signed
         }
         rslt = template.render(template_dict)
         return rslt

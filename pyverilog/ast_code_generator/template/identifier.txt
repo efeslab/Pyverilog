@@ -1,1 +1,1 @@
-{{ scope }}{{ name }}
+{% if force_signed %}$signed({% endif %}{{ sccpe }}{{ name }}{% if force_signed %}){% endif %}

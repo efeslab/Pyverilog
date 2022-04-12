@@ -215,6 +215,8 @@ class Identifier(Node):
         self.lineno = lineno
         self.name = name
         self.scope = scope
+        self.force_signed = False
+        self.force_unsigned = False
 
     def children(self):
         nodelist = []
