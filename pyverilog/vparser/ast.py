@@ -411,6 +411,8 @@ class Concat(Node):
     def __init__(self, list, lineno=0):
         self.lineno = lineno
         self.list = list
+        self.force_signed = False
+        self.force_unsigned = False
 
     def children(self):
         nodelist = []

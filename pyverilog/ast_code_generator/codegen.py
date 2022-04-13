@@ -469,6 +469,7 @@ class ASTCodeGenerator(ConvertVisitor):
         template_dict = {
             'items': items,
             'len_items': len(items),
+            'force_signed': node.force_signed
         }
         rslt = template.render(template_dict)
         return rslt

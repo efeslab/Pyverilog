@@ -1,1 +1,1 @@
-{ {% for item in items %}{{ item }}{% if loop.index < len_items %}, {% endif %}{% endfor %} }
+{% if force_signed %}$signed({% endif %}{ {% for item in items %}{{ item }}{% if loop.index < len_items %}, {% endif %}{% endfor %} }{% if force_signed %}){% endif %}
